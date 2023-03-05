@@ -24,4 +24,5 @@ public class Chatroom implements Serializable {
 
     private Connection helpGiver;
     private Connection helpSeeker;
+    private Boolean assistantRequested;
 }

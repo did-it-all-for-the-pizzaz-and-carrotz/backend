@@ -31,13 +31,14 @@ public class ChatLauncher extends WebSocketServer {
 
     @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
+        handshake.getResourceDescriptor();
         log.info(conn.getRemoteSocketAddress().getAddress().getHostAddress() + " has connected");
     }
 
     @Override
     public void onClose(WebSocket conn, int code, String reason, boolean remote) {
+        chatService.disconnect(conn);
         log.info(conn + " has left the room!");
-
     }
 
     @SneakyThrows

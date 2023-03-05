@@ -12,6 +12,10 @@ import org.springframework.stereotype.Service;
 import tech.carrotly.restapi.chat.models.Connection;
 import tech.carrotly.restapi.chat.payloads.KickHelpGiver;
 import tech.carrotly.restapi.chat.payloads.MessageRequest;
+import tech.carrotly.restapi.chat.payloads.CreateMessage;
+import tech.carrotly.restapi.chat.payloads.HelpSeekerLeft;
+import tech.carrotly.restapi.chat.payloads.Participant;
+import tech.carrotly.restapi.chat.payloads.RequestAssistant;
 import tech.carrotly.restapi.model.entity.Chatroom;
 import tech.carrotly.restapi.model.response.CreatedChatroomResponse;
 import tech.carrotly.restapi.service.ChatService;
@@ -28,6 +32,8 @@ import java.util.UUID;
 public class ChatServiceImpl implements ChatService {
 
     private final Map<UUID, Chatroom> chatrooms;
+    private final Map<Integer, UUID> helpSeekerToChatroom;
+    private final Map<Integer, UUID> helpGiverToChatroom;
     private final ObjectMapper objectMapper;
     private final Set<Connection> users = new HashSet<>();
 
@@ -71,6 +77,7 @@ public class ChatServiceImpl implements ChatService {
             case "helperEnteredChatroom" -> helperEnteredChatroom(payload, conn);
             case "helperLeftChatroom" -> helperLeftChatroom(payload);
             case "onMessage" -> onMessage(payload, conn);
+            case "requestAssistant" -> requestAssistant(payload);
             case "helperLogin" -> onHelperLogin(payload, conn);
             case "helperLogout" -> onHelperLogout(payload, conn);
         }
@@ -86,18 +93,21 @@ public class ChatServiceImpl implements ChatService {
         log.info("User {} has logged in", conn.getRemoteSocketAddress());
     }
 
-    private void createChatroom() {
-
+    public void disconnect(WebSocket conn) {
+        if (helpGiverToChatroom.containsKey(conn.hashCode())) disconnectHelpGiver(helpGiverToChatroom.get(conn.hashCode()));
+        if (helpSeekerToChatroom.containsKey(conn.hashCode())) disconnectHelpSeeker(helpSeekerToChatroom.get(conn.hashCode()));
     }
 
-    private void removeChatroom(UUID chatroomUuid) {
+    private void disconnectHelpGiver(UUID chatroomUuid) {
+        Chatroom chatroom = chatrooms.get(chatroomUuid);
+        chatroom.setHelpGiver(null);
+    }
+
+    private void disconnectHelpSeeker(UUID chatroomUuid) {
         Chatroom chatroom = chatrooms.get(chatroomUuid);
         chatrooms.remove(chatroom.getUuid());
-
-        KickHelpGiver kickHelpGiver = KickHelpGiver.builder().chatroomUuid(chatroomUuid).build();
-
-        Connection connection = chatroom.getHelpGiver();
-        connection.getWebSocket().send(new Gson().toJson(kickHelpGiver));
+        HelpSeekerLeft helpSeekerLeft = HelpSeekerLeft.builder().chatroomUuid(chatroom.getUuid()).build();
+        chatroom.getHelpGiver().getWebSocket().send(new Gson().toJson(helpSeekerLeft));
     }
 
     private void helperEnteredChatroom(String json, WebSocket connection) {
@@ -126,6 +136,20 @@ public class ChatServiceImpl implements ChatService {
             chatroom.getHelpGiver().getWebSocket().send(message.toJson());
             return;
         }
+    }
+
+    private void requestAssistant(String json) {
+        RequestAssistant payload = new Gson().fromJson(json, RequestAssistant.class);
+        Chatroom chatroom = chatrooms.get(payload.getChatroomUuid());
+        chatroom.setAssistantRequested(true);
+
+        CreateMessage createMessage = CreateMessage.builder()
+                .chatroomUuid(chatroom.getUuid())
+                .sender(Participant.ASSISTANT)
+                .message("Hi! I am your virtual assistant and I'm here to help you. How can I serve you today?")
+                .build();
+
+        chatroom.getHelpSeeker().getWebSocket().send(new Gson().toJson(createMessage));
     }
 
 }

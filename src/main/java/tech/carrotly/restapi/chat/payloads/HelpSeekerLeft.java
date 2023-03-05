@@ -5,6 +5,6 @@ import lombok.Builder;
 import java.util.UUID;
 
 @Builder
-public class KickHelpGiver {
+public class HelpSeekerLeft {
     UUID chatroomUuid;
 }
