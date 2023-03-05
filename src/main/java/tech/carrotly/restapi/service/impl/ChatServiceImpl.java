@@ -10,7 +10,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.java_websocket.WebSocket;
 import org.springframework.stereotype.Service;
 import tech.carrotly.restapi.chat.models.Connection;
-import tech.carrotly.restapi.chat.payloads.KickHelpGiver;
 import tech.carrotly.restapi.chat.payloads.MessageRequest;
 import tech.carrotly.restapi.chat.payloads.CreateMessage;
 import tech.carrotly.restapi.chat.payloads.HelpSeekerLeft;
