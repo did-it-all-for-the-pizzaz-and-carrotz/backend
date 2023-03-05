@@ -5,15 +5,20 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 import lombok.RequiredArgsConstructor;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.java_websocket.WebSocket;
 import org.springframework.stereotype.Service;
 import tech.carrotly.restapi.chat.models.Connection;
 import tech.carrotly.restapi.chat.payloads.KickHelpGiver;
+import tech.carrotly.restapi.chat.payloads.MessageRequest;
 import tech.carrotly.restapi.model.entity.Chatroom;
+import tech.carrotly.restapi.model.response.CreatedChatroomResponse;
 import tech.carrotly.restapi.service.ChatService;
 
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 
@@ -24,6 +29,7 @@ public class ChatServiceImpl implements ChatService {
 
     private final Map<UUID, Chatroom> chatrooms;
     private final ObjectMapper objectMapper;
+    private final Set<Connection> users = new HashSet<>();
 
 //    private Map<String, Function<?, ?>> actionMap = new HashMap<>(Map.of(
 //            "createChatroom", (payload) -> createChatroom(), // wysylamy do wszystkich zalogowanych ziutow popupa
@@ -34,7 +40,7 @@ public class ChatServiceImpl implements ChatService {
 //    ));
 
     public UUID createChatroom(WebSocket conn) {
-        UUID chatroomUuid = UUID.randomUUID();
+        final UUID chatroomUuid = UUID.randomUUID();
 
         Chatroom chatroom = Chatroom.builder()
                 .uuid(chatroomUuid)
@@ -45,28 +51,39 @@ public class ChatServiceImpl implements ChatService {
 
         log.info("Chatroom with UUID {} has been created", chatroomUuid);
 
-        return chatroomUuid;
-    }
+        conn.send(
+                new Gson().toJson(CreatedChatroomResponse.builder()
+                        .chatroomUUID(chatroomUuid)
+                        .build())
+        );
 
-    public void removeChatroom(Object chatroomUuid) {
-        chatrooms.remove(chatroomUuid);
-        String aaa = (String) chatroomUuid;
-        log.info(aaa);
+        return chatroomUuid;
     }
 
     @Override
     public void process(String message, WebSocket conn) throws JsonProcessingException {
         JsonNode node = objectMapper.readTree(message);
         String topic = node.get("topic").toString().replaceAll("\"", "");
-        String payload = node.get("payload").toString().replaceAll("\"", "");
+        String payload = node.get("payload").toString();
 
         switch (topic) {
             case "createChatroom" -> createChatroom(conn);
-            case "removeChatroom" -> removeChatroom(payload);
-            case "helperEnteredChatroom" -> helperEnteredChatroom(payload);
+            case "helperEnteredChatroom" -> helperEnteredChatroom(payload, conn);
             case "helperLeftChatroom" -> helperLeftChatroom(payload);
-            case "onMessage" -> onMessage(payload);
+            case "onMessage" -> onMessage(payload, conn);
+            case "helperLogin" -> onHelperLogin(payload, conn);
+            case "helperLogout" -> onHelperLogout(payload, conn);
         }
+    }
+
+    private void onHelperLogout(String payload, WebSocket conn) {
+        users.remove(Connection.builder().webSocket(conn).build());
+        log.info("User {} has logged out", conn.getRemoteSocketAddress());
+    }
+
+    private void onHelperLogin(String payload, WebSocket conn) {
+        users.add(Connection.builder().webSocket(conn).build());
+        log.info("User {} has logged in", conn.getRemoteSocketAddress());
     }
 
     private void createChatroom() {
@@ -83,7 +100,11 @@ public class ChatServiceImpl implements ChatService {
         connection.getWebSocket().send(new Gson().toJson(kickHelpGiver));
     }
 
-    private void helperEnteredChatroom(String json) {
+    private void helperEnteredChatroom(String json, WebSocket connection) {
+
+    }
+
+    private void sendHelperPlaceTakenChatroom(WebSocket connection) {
 
     }
 
@@ -92,8 +113,19 @@ public class ChatServiceImpl implements ChatService {
     private void helperLeftChatroom(String json) {
     }
 
-    private void onMessage(String payload) {
+    @SneakyThrows
+    private void onMessage(String payload, WebSocket conn) {
+        MessageRequest message = objectMapper.readValue(payload, MessageRequest.class);
 
+        log.info(payload);
+        log.info(message.toString());
+
+        final Chatroom chatroom = chatrooms.get(UUID.fromString(message.getChatroomUuid()));
+
+        if(users.contains(Connection.builder().webSocket(conn).build())) {
+            chatroom.getHelpGiver().getWebSocket().send(message.toJson());
+            return;
+        }
     }
 
 }

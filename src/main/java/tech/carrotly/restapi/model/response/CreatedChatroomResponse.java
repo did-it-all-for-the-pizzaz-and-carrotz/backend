@@ -1,4 +1,4 @@
-package tech.carrotly.restapi.chat.payloads;
+package tech.carrotly.restapi.model.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,8 +12,6 @@ import java.util.UUID;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CreateMessage implements Serializable {
-    UUID chatroomUuid;
-    Participant sender;
-    String message;
+public class CreatedChatroomResponse implements Serializable {
+    private UUID chatroomUUID;
 }
