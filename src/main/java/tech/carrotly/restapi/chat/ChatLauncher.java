@@ -8,21 +8,25 @@ import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import tech.carrotly.restapi.chat.models.ChatObject;
+import tech.carrotly.restapi.service.impl.ChatServiceImpl;
 
 import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 
 @Slf4j
 @Component
 public class ChatLauncher extends WebSocketServer {
     private final ObjectMapper objectMapper;
+    private final ChatServiceImpl chatService;
 
-    public ChatLauncher(@Value("${socket.port}") Integer port,
-                        ObjectMapper objectMapper) throws UnknownHostException {
-        super(new InetSocketAddress(8081));
+    public ChatLauncher(
+            @Value("${socket.port}") Integer port,
+            ObjectMapper objectMapper,
+            ChatServiceImpl chatService
+    ) {
+        super(new InetSocketAddress(port));
         this.objectMapper = objectMapper;
+        this.chatService = chatService;
     }
 
     @Override
@@ -35,13 +39,16 @@ public class ChatLauncher extends WebSocketServer {
     @Override
     public void onClose(WebSocket conn, int code, String reason, boolean remote) {
         System.out.println(conn + " has left the room!");
+
     }
 
     @SneakyThrows
     @Override
     public void onMessage(WebSocket conn, String message) {
-        ChatObject chatObject = objectMapper.readValue(message, ChatObject.class);
-        log.info(chatObject.toString());
+//        ChatObject chatObject = objectMapper.readValue(message, ChatObject.class);
+
+//        log.info(chatObject.toString());
+        chatService.process(message);
     }
 
     @Override

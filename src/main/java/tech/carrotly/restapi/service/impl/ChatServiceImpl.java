@@ -1,6 +1,9 @@
 package tech.carrotly.restapi.service.impl;
 
 import com.corundumstudio.socketio.SocketIOClient;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -13,6 +16,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -20,6 +24,15 @@ public class ChatServiceImpl implements ChatService {
 
     private final Map<UUID, Chatroom> chatrooms;
     private final Set<SocketIOClient> clients;
+    private final ObjectMapper objectMapper;
+
+//    private Map<String, Function<?, ?>> actionMap = new HashMap<>(Map.of(
+//            "createChatroom", (payload) -> createChatroom(), // wysylamy do wszystkich zalogowanych ziutow popupa
+//            "removeChatroom", (payload) -> removeChatroom((String) payload), //wysylamy do lekarza payload zeby na froncie wywalilo powiadomienie o zamknieciu roomu i do reszty jako koniec
+//            "helperEnteredChatroom", (payload) -> helperEnteredChatroom(payload), // front dostaje popupa ze ktos dolaczyl, room znika z mozliwosci dolaczenia dla lekarzy
+//            "helperLeftChatroom", (payload) -> helperLeftChatroom(payload), // front dostaje popupa ze ktos wyszedl, room pokazuje sie na nowo dla lekarzy (15 sekund czekania) -> popup i tryb AI
+//            "onMessage", (payload) -> onMessage(payload), // wyslanie wiadomosci do uzytkownikow chatroomu
+//    ));
 
     @Override
     public void addClient(SocketIOClient socketIOClient) {
@@ -28,7 +41,12 @@ public class ChatServiceImpl implements ChatService {
 
     @Override
     public UUID createChatroom() {
-        UUID chatroomUuid = UUID.randomUUID();
+
+        UUID chatroomUuid;
+        do {
+            chatroomUuid = UUID.randomUUID();
+        } while(chatrooms.containsKey(chatroomUuid));
+
         Chatroom chatroom = Chatroom.builder().uuid(chatroomUuid).build();
         chatrooms.put(chatroomUuid, chatroom);
         return chatroomUuid;
@@ -50,7 +68,44 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    public void removeChatroom(UUID chatroomUuid) {
+    public void removeChatroom(Object chatroomUuid) {
         chatrooms.remove(chatroomUuid);
+    }
+
+    @Override
+    public void process(String message) throws JsonProcessingException {
+        JsonNode node = objectMapper.readTree(message);
+        String topic = node.get("topic").toString();
+        String payload = node.get("payload").toString();
+
+        switch(topic) {
+            case "createChatroom":
+                createChatroom();
+                break;
+            case "removeChatroom":
+                removeChatroom(payload);
+                break;
+            case "helperEnteredChatroom":
+                helperEnteredChatroom(payload);
+                break;
+            case "helperLeftChatroom":
+                helperLeftChatroom(payload);
+                break;
+            case "onMessage":
+                onMessage(payload);
+                break;
+        }
+    }
+
+    private void onMessage(String payload) {
+
+
+    }
+
+    private void helperLeftChatroom(String payload) {
+
+    }
+
+    private void helperEnteredChatroom(String payload) {
     }
 }
