@@ -20,7 +20,7 @@ public class BackendApplication {
     @Bean
     CommandLineRunner runner() {
         return args -> {
-            chatLauncher.run();
+            chatLauncher.start();
         };
     }
 

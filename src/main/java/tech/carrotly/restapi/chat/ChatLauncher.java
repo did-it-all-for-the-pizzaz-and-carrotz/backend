@@ -1,67 +1,68 @@
 package tech.carrotly.restapi.chat;
 
-import com.corundumstudio.socketio.Configuration;
-import com.corundumstudio.socketio.SocketIOClient;
-import com.corundumstudio.socketio.SocketIOServer;
-import com.corundumstudio.socketio.listener.ConnectListener;
-import com.corundumstudio.socketio.listener.DisconnectListener;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.event.ContextClosedEvent;
-import org.springframework.context.event.EventListener;
+import org.java_websocket.WebSocket;
+import org.java_websocket.handshake.ClientHandshake;
+import org.java_websocket.server.WebSocketServer;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import tech.carrotly.restapi.chat.models.ChatObject;
-import tech.carrotly.restapi.service.impl.ChatServiceImpl;
+
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
 
 @Slf4j
 @Component
-public class ChatLauncher {
-    private final SocketIOServer server;
-    private final ChatServiceImpl chatService;
+public class ChatLauncher extends WebSocketServer {
+    private final ObjectMapper objectMapper;
 
-    public ChatLauncher(@Qualifier("chatConfiguration") final Configuration configuration,
-                        final ChatServiceImpl chatService) {
-        this.server = new SocketIOServer(configuration);
-        this.chatService = chatService;
-
-        server.addConnectListener(new ConnectListener() {
-            @Override
-            public void onConnect(SocketIOClient socketIOClient) {
-                chatService.addClient(socketIOClient);
-            }
-        });
-
-        server.addDisconnectListener(new DisconnectListener() {
-            @Override
-            public void onDisconnect(SocketIOClient socketIOClient) {
-                log.info("Disconnected");
-            }
-        });
-
-        server.addEventListener("notify", ChatObject.class, (socketIOClient, data, ackRequest) -> {
-            server.getBroadcastOperations().sendEvent("notify", data);
-        });
-
-        server.addEventListener("send", ChatObject.class, (socketIOClient, data, ackRequest) -> {
-            log.info("Sending message....");
-            log.info(socketIOClient.toString());
-        });
+    public ChatLauncher(@Value("${socket.port}") Integer port,
+                        ObjectMapper objectMapper) throws UnknownHostException {
+        super(new InetSocketAddress(8081));
+        this.objectMapper = objectMapper;
     }
 
-    @EventListener(ContextClosedEvent.class)
-    public void onContextClosedEvent(ContextClosedEvent contextClosedEvent) throws InterruptedException {
-        log.info("Socket.io - Shutdown initiated...");
-        server.stop();
-        Thread.sleep(2000);
-        log.info("Socket.io - Shutdown completed.");
+    @Override
+    public void onOpen(WebSocket conn, ClientHandshake handshake) {
+
+        System.out.println(
+                conn.getRemoteSocketAddress().getAddress().getHostAddress() + " entered the room!");
     }
 
-    public void run() {
-        log.info("Starting socket server...");
-        server.start();
+    @Override
+    public void onClose(WebSocket conn, int code, String reason, boolean remote) {
+        System.out.println(conn + " has left the room!");
     }
 
-    private void configureNamespaces() {
-
+    @SneakyThrows
+    @Override
+    public void onMessage(WebSocket conn, String message) {
+        ChatObject chatObject = objectMapper.readValue(message, ChatObject.class);
+        log.info(chatObject.toString());
     }
+
+    @Override
+    public void onMessage(WebSocket conn, ByteBuffer message) {
+        broadcast(message.array());
+        System.out.println(conn + ": " + message);
+    }
+
+    @Override
+    public void onError(WebSocket conn, Exception ex) {
+        ex.printStackTrace();
+        if (conn != null) {
+            // some errors like port binding failed may not be assignable to a specific websocket
+        }
+    }
+
+    @Override
+    public void onStart() {
+        log.info("Socket Server started...");
+        setConnectionLostTimeout(0);
+        setConnectionLostTimeout(100);
+    }
+
 }
