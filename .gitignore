@@ -35,3 +35,6 @@ build/
 ### Maven ###
 mvnw*
 .mvn./
+
+### Docker ###
+db-data
