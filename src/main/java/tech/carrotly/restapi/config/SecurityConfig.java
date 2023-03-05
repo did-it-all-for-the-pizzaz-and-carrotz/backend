@@ -1,4 +1,4 @@
-package tech.carrotly.restapi.restapi.config;
+package tech.carrotly.restapi.config;
 
 import org.springframework.context.annotation.Configuration;
 

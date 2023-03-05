@@ -1,4 +1,4 @@
-package tech.carrotly.restapi.restapi;
+package tech.carrotly.restapi;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

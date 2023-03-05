@@ -1,4 +1,4 @@
-package tech.carrotly.restapi.restapi.mapper;
+package tech.carrotly.restapi.mapper;
 
 import org.mapstruct.Mapper;
 import org.mapstruct.factory.Mappers;
