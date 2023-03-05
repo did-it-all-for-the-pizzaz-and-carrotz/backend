@@ -23,7 +23,6 @@
         <jackson-databind-nullable-version>0.2.1</jackson-databind-nullable-version>
         <swagger-annotations-version>1.6.2</swagger-annotations-version>
         <dockerfile-maven-plugin.version>1.4.13</dockerfile-maven-plugin.version>
-        <netty.version>1.7.7</netty.version>
     </properties>
 
     <dependencies>
@@ -171,6 +170,11 @@
             <groupId>io.github.openfeign</groupId>
             <artifactId>feign-gson</artifactId>
             <version>9.4.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.10.1</version>
         </dependency>
 
 

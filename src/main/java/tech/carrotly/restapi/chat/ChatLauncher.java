@@ -31,7 +31,6 @@ public class ChatLauncher extends WebSocketServer {
 
     @Override
     public void onOpen(WebSocket conn, ClientHandshake handshake) {
-
         System.out.println(
                 conn.getRemoteSocketAddress().getAddress().getHostAddress() + " entered the room!");
     }

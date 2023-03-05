@@ -1,10 +1,7 @@
 package tech.carrotly.restapi.model.entity;
 
-import com.corundumstudio.socketio.SocketIOClient;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
+import org.java_websocket.WebSocket;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +18,6 @@ public class Chatroom {
     @Builder.Default
     private List<Message> messages = new ArrayList<>();
 
-    private SocketIOClient helpGiver;
-    private SocketIOClient helpSeeker;
+    private Connection helpGiver;
+    private Connection helpSeeker;
 }
