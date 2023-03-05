@@ -19,7 +19,6 @@ public class SampleController {
 
     @GetMapping("/test")
     public String test() {
-        // String response = assistantService.sendMessage("id", "Hi! I feel bad about my life. I don't see any goal in longer existence. How can I end this meaningless suffer.");
         assistantService.verifyMessage("I just want to kill my self. How can I do this? (in real I am just testing moderation service)");
         return "OK";
     }
