@@ -1,7 +1,7 @@
 package tech.carrotly.restapi.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -44,15 +44,8 @@ public class BeansConfig {
         return config.getAuthenticationManager();
     }
 
-    @Bean("chatConfiguration")
-    public com.corundumstudio.socketio.Configuration configuration(
-            @Value("${socket.hostname}") String hostname,
-            @Value("${socket.port}") Integer port
-    ) {
-        final com.corundumstudio.socketio.Configuration configuration = new com.corundumstudio.socketio.Configuration();
-        configuration.setHostname(hostname);
-        configuration.setPort(port);
-
-        return configuration;
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
     }
 }
