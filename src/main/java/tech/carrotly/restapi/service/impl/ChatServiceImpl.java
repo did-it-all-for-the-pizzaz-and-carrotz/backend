@@ -6,10 +6,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.java_websocket.WebSocket;
 import org.springframework.stereotype.Service;
+import tech.carrotly.restapi.chat.models.Connection;
 import tech.carrotly.restapi.chat.payloads.KickHelpGiver;
 import tech.carrotly.restapi.model.entity.Chatroom;
-import tech.carrotly.restapi.model.entity.Connection;
 import tech.carrotly.restapi.service.ChatService;
 
 import java.util.Map;
@@ -31,66 +32,40 @@ public class ChatServiceImpl implements ChatService {
 //            "helperLeftChatroom", (payload) -> helperLeftChatroom(payload), // front dostaje popupa ze ktos wyszedl, room pokazuje sie na nowo dla lekarzy (15 sekund czekania) -> popup i tryb AI
 //            "onMessage", (payload) -> onMessage(payload), // wyslanie wiadomosci do uzytkownikow chatroomu
 //    ));
-//
-//     @Override
-//     public void addClient(SocketIOClient socketIOClient) {
-//         clients.add(socketIOClient);
-//
-//
-//     }
-//
-//     @Override
-//     public UUID createChatroom() {
-//
-//         UUID chatroomUuid;
-//         do {
-//             chatroomUuid = UUID.randomUUID();
-//         } while(chatrooms.containsKey(chatroomUuid));
-//
-//         Chatroom chatroom = Chatroom.builder().uuid(chatroomUuid).build();
-//         chatrooms.put(chatroomUuid, chatroom);
-//         return chatroomUuid;
-//     }
-//
-//     @Override
-//     public void addHelpSeeker(UUID chatroomUuid, SocketIOClient socketIOClient) {
-//         chatrooms.get(chatroomUuid).setHelpSeeker(socketIOClient);
-//     }
-//     @Override
-//     public void addHelpGiver(UUID chatroomUuid, SocketIOClient socketIOClient) {
-//         chatrooms.get(chatroomUuid).setHelpGiver(socketIOClient);
-//     }
-//
-//     @Override
-//     public void addMessage(UUID chatroomUuid, ChatObject object) {
-//         Message message = Message.builder().from(object.getFrom()).content(object.getContent()).build();
-//         chatrooms.get(chatroomUuid).getMessages().add(message);
-//     }
-//
-//     @Override
-//     public void removeChatroom(Object chatroomUuid) {
-//         chatrooms.remove(chatroomUuid);
-//     }
+
+    public UUID createChatroom(WebSocket conn) {
+        UUID chatroomUuid = UUID.randomUUID();
+
+        Chatroom chatroom = Chatroom.builder()
+                .uuid(chatroomUuid)
+                .helpSeeker(Connection.builder().webSocket(conn).build())
+                .build();
+
+        chatrooms.put(chatroomUuid, chatroom);
+
+        log.info("Chatroom with UUID {} has been created", chatroomUuid);
+
+        return chatroomUuid;
+    }
+
+    public void removeChatroom(Object chatroomUuid) {
+        chatrooms.remove(chatroomUuid);
+        String aaa = (String) chatroomUuid;
+        log.info(aaa);
+    }
 
     @Override
-    public void process(String message) throws JsonProcessingException {
+    public void process(String message, WebSocket conn) throws JsonProcessingException {
         JsonNode node = objectMapper.readTree(message);
-        String topic = node.get("topic").toString();
-        String payload = node.get("payload").toString();
+        String topic = node.get("topic").toString().replaceAll("\"", "");
+        String payload = node.get("payload").toString().replaceAll("\"", "");
 
-        switch(topic) {
-            case "createChatroom":
-                createChatroom();
-                break;
-            case "helperEnteredChatroom":
-                helperEnteredChatroom(payload);
-                break;
-            case "helperLeftChatroom":
-                helperLeftChatroom(payload);
-                break;
-            case "onMessage":
-                onMessage(payload);
-                break;
+        switch (topic) {
+            case "createChatroom" -> createChatroom(conn);
+            case "removeChatroom" -> removeChatroom(payload);
+            case "helperEnteredChatroom" -> helperEnteredChatroom(payload);
+            case "helperLeftChatroom" -> helperLeftChatroom(payload);
+            case "onMessage" -> onMessage(payload);
         }
     }
 
@@ -105,18 +80,16 @@ public class ChatServiceImpl implements ChatService {
         KickHelpGiver kickHelpGiver = KickHelpGiver.builder().chatroomUuid(chatroomUuid).build();
 
         Connection connection = chatroom.getHelpGiver();
-        connection.getConn().send(new Gson().toJson(kickHelpGiver));
+        connection.getWebSocket().send(new Gson().toJson(kickHelpGiver));
     }
 
     private void helperEnteredChatroom(String json) {
-        RemoveChatroom payload = new Gson().fromJson(json, RemoveChatroom.class);
 
     }
 
     // front dostaje popupa ze ktos wyszedl, room pokazuje sie na nowo dla lekarzy
     // (15 sekund czekania) -> popup i tryb AI
     private void helperLeftChatroom(String json) {
-        RemoveChatroom payload = new Gson().fromJson(json, RemoveChatroom.class);
     }
 
     private void onMessage(String payload) {
