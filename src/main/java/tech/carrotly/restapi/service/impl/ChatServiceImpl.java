@@ -12,9 +12,11 @@ import tech.carrotly.restapi.model.entity.Chatroom;
 import tech.carrotly.restapi.model.entity.Message;
 import tech.carrotly.restapi.service.ChatService;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
 
 
 @Slf4j
@@ -37,6 +39,8 @@ public class ChatServiceImpl implements ChatService {
     @Override
     public void addClient(SocketIOClient socketIOClient) {
         clients.add(socketIOClient);
+
+
     }
 
     @Override
