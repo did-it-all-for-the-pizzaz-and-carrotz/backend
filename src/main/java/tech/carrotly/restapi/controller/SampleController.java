@@ -5,46 +5,22 @@ import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import tech.carrotly.restapi.integrations.openai.OpenAiApi;
-import tech.carrotly.restapi.integrations.openai.OpenAiClient;
-import tech.carrotly.restapi.integrations.openai.dtos.CreateChatCompletionMessageRequest;
-import tech.carrotly.restapi.integrations.openai.dtos.CreateChatCompletionRequest;
-import tech.carrotly.restapi.integrations.openai.dtos.CreateChatCompletionResponse;
-import tech.carrotly.restapi.integrations.openai.enums.ChatParticipant;
-
-import java.util.ArrayList;
-import java.util.List;
+import tech.carrotly.restapi.service.AssistantService;
 
 @RestController
+@RequestMapping("/sample")
 @RequiredArgsConstructor
 @Slf4j
 public class SampleController {
-    private final OpenAiClient openAiClient;
+    private final AssistantService assistantService;
     private final Logger logger = LoggerFactory.getLogger(SampleController.class);
 
-    @GetMapping
+    @GetMapping("/test")
     public String test() {
-        logger.info("#1");
-
-        List<CreateChatCompletionMessageRequest> messages = new ArrayList<>();
-        messages.add(CreateChatCompletionMessageRequest.builder().role(ChatParticipant.SYSTEM).content(flavor).build());
-        messages.add(CreateChatCompletionMessageRequest.builder().role(ChatParticipant.USER).content(message).build());
-        logger.info("#2");
-
-        CreateChatCompletionResponse response = openAiClient.createChatCompletion(messages);
-        logger.info("#3");
-        logger.info(response.getChoices().get(0).getMessages().get(0).getContent());
-
-        return "test";
+        // String response = assistantService.sendMessage("id", "Hi! I feel bad about my life. I don't see any goal in longer existence. How can I end this meaningless suffer.");
+        assistantService.verifyMessage("I just want to kill my self. How can I do this? (in real I am just testing moderation service)");
+        return "OK";
     }
 }
-
-
-// @Service
-// @RequiredArgsConstructor
-// public class PostService {
-//
-//     private final PostRepository postRepository;
-//     private final MediaRepository mediaRepository;
-//     private final PostConverter postConverter;

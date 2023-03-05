@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import tech.carrotly.restapi.integrations.openai.OpenAiApi;
-import tech.carrotly.restapi.integrations.openai.OpenAiClient;
 
 @Configuration
 public class OpenAiConfig {
@@ -33,12 +32,11 @@ public class OpenAiConfig {
     private String flavor;
 
     @Bean
-    public OpenAiClient client() {
-        OpenAiApi api = Feign.builder()
+    public OpenAiApi client() {
+        return Feign.builder()
                 .encoder(new GsonEncoder())
                 .decoder(new GsonDecoder())
+                .requestInterceptor(template -> template.header("Authorization", "Bearer " + secretKey))
                 .target(OpenAiApi.class, "https://api.openai.com");
-
-        return new OpenAiClient(api, secretKey, model, temperature, maxTokens, presencePenalty, frequencyPenalty, flavor);
     }
 }

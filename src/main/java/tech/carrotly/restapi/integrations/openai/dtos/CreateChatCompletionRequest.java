@@ -1,18 +1,20 @@
 package tech.carrotly.restapi.integrations.openai.dtos;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.google.gson.annotations.SerializedName;
 import lombok.Builder;
-import lombok.Getter;
-import lombok.Setter;
 
 import java.util.List;
 
 @Builder
 public class CreateChatCompletionRequest {
-    private String secretKey;
-    private List<CreateChatCompletionMessageRequest> messages;
-    private String model;
-    private Float temperature;
-    private Integer maxTokens;
-    private Float presencePenalty;
-    private Float frequencyPenalty;
+    String model;
+    List<CreateChatCompletionMessageRequest> messages;
+    Float temperature;
+    @SerializedName("max_tokens")
+    Integer maxTokens;
+    @SerializedName("presence_penalty")
+    Float presencePenalty;
+    @SerializedName("frequency_penalty")
+    Float frequencyPenalty;
 }

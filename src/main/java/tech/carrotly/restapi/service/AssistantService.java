@@ -1,5 +1,7 @@
 package tech.carrotly.restapi.service;
 
 public interface AssistantService {
-    String complete(String prompt);
+    String sendMessage(String conversationId, String message);
+
+    Boolean verifyMessage(String message);
 }

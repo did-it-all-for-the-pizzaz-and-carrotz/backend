@@ -7,6 +7,6 @@ import tech.carrotly.restapi.integrations.openai.enums.ChatParticipant;
 @Getter
 @Setter
 public class CreateChatCompletionChoiceMessageResponse {
-    ChatParticipant role;
+    String role;
     String content;
 }

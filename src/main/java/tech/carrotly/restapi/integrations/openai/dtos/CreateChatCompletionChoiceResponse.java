@@ -1,14 +1,14 @@
 package tech.carrotly.restapi.integrations.openai.dtos;
 
+import com.google.gson.annotations.SerializedName;
 import lombok.Getter;
 import lombok.Setter;
-
-import java.util.List;
 
 @Getter
 @Setter
 public class CreateChatCompletionChoiceResponse {
     Integer index;
-    List<CreateChatCompletionChoiceMessageResponse> messages;
+    CreateChatCompletionChoiceMessageResponse message;
+    @SerializedName("finish_reason")
     String finishReason;
 }
