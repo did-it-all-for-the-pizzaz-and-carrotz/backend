@@ -1,5 +1,6 @@
 package tech.carrotly.restapi.model.entity;
 
+import com.corundumstudio.socketio.SocketIOClient;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -7,19 +8,19 @@ import lombok.NoArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class Room {
+public class Chatroom {
 
-    private String UUID;
+    private UUID uuid;
 
     @Builder.Default
     private List<Message> messages = new ArrayList<>();
 
-    private User helper;
-    private User personInNeed;
-
+    private SocketIOClient helpGiver;
+    private SocketIOClient helpSeeker;
 }

@@ -13,5 +13,4 @@ public class ChatObject {
     private String roomUUID;
     private String from;
     private String content;
-    private String sender;
 }
