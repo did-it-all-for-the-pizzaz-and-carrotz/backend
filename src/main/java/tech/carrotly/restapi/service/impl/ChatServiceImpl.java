@@ -16,13 +16,12 @@ import tech.carrotly.restapi.chat.payloads.HelpSeekerLeft;
 import tech.carrotly.restapi.chat.payloads.Participant;
 import tech.carrotly.restapi.chat.payloads.RequestAssistant;
 import tech.carrotly.restapi.model.entity.Chatroom;
+import tech.carrotly.restapi.model.entity.Message;
 import tech.carrotly.restapi.model.response.CreatedChatroomResponse;
+import tech.carrotly.restapi.service.AssistantService;
 import tech.carrotly.restapi.service.ChatService;
 
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 
 @Slf4j
@@ -35,6 +34,7 @@ public class ChatServiceImpl implements ChatService {
     private final Map<Integer, UUID> helpGiverToChatroom;
     private final ObjectMapper objectMapper;
     private final Set<Connection> users = new HashSet<>();
+    private final AssistantService assistantService;
 
 //    private Map<String, Function<?, ?>> actionMap = new HashMap<>(Map.of(
 //            "createChatroom", (payload) -> createChatroom(), // wysylamy do wszystkich zalogowanych ziutow popupa
@@ -56,11 +56,13 @@ public class ChatServiceImpl implements ChatService {
 
         log.info("Chatroom with UUID {} has been created", chatroomUuid);
 
-        conn.send(
-                new Gson().toJson(CreatedChatroomResponse.builder()
-                        .chatroomUUID(chatroomUuid)
-                        .build())
-        );
+        CreatedChatroomResponse createdChatroomResponse = CreatedChatroomResponse.builder()
+                .chatroomUUID(chatroomUuid)
+                .build();
+
+        String createdChatroomResponseJson = new Gson().toJson(createdChatroomResponse);
+        conn.send(createdChatroomResponseJson);
+        users.forEach(entry -> entry.getWebSocket().send(createdChatroomResponseJson));
 
         return chatroomUuid;
     }
@@ -106,7 +108,8 @@ public class ChatServiceImpl implements ChatService {
         Chatroom chatroom = chatrooms.get(chatroomUuid);
         chatrooms.remove(chatroom.getUuid());
         HelpSeekerLeft helpSeekerLeft = HelpSeekerLeft.builder().chatroomUuid(chatroom.getUuid()).build();
-        chatroom.getHelpGiver().getWebSocket().send(new Gson().toJson(helpSeekerLeft));
+        String helpSeekerLeftJson = new Gson().toJson(helpSeekerLeft);
+        users.forEach(entry -> entry.getWebSocket().send(helpSeekerLeftJson));
     }
 
     private void helperEnteredChatroom(String json, WebSocket connection) {
@@ -131,14 +134,23 @@ public class ChatServiceImpl implements ChatService {
 
         final Chatroom chatroom = chatrooms.get(UUID.fromString(message.getChatroomUuid()));
 
-        if(users.contains(Connection.builder().webSocket(conn).build())) {
+        if (chatroom.getAssistantRequested()) {
+            log.info("Send message to assistant");
+            String assistantResponse = assistantService.sendMessage(message.getMessage());
+            chatroom.getMessages().add(Message.builder().content(assistantResponse).from(Participant.ASSISTANT.toString()).build());
+            CreateMessage assistantMessage = CreateMessage.builder().message(assistantResponse).chatroomUuid(chatroom.getUuid()).sender(Participant.ASSISTANT).build();
+            conn.send(assistantMessage.toJson());
+        }
+
+        if (chatroom.getHelpGiver() != null && Objects.equals(chatroom.getHelpGiver().getWebSocket(), conn)) {
             chatroom.getHelpGiver().getWebSocket().send(message.toJson());
-            return;
         }
     }
 
     private void requestAssistant(String json) {
+        log.info(json);
         RequestAssistant payload = new Gson().fromJson(json, RequestAssistant.class);
+        log.info(payload.getChatroomUuid().toString());
         Chatroom chatroom = chatrooms.get(payload.getChatroomUuid());
         chatroom.setAssistantRequested(true);
 

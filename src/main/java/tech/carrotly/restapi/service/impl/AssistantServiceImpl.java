@@ -40,7 +40,7 @@ public class AssistantServiceImpl implements AssistantService {
     private String flavor;
 
     @Override
-    public String sendMessage(String conversationId, String message) {
+    public String sendMessage(String message) {
         List<CreateChatCompletionMessageRequest> messages = new ArrayList<>();
         messages.add(CreateChatCompletionMessageRequest.builder().role(ChatParticipant.SYSTEM).content(flavor).build());
         // Load some older messages to keep conversation context
