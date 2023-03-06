@@ -45,7 +45,6 @@ public class ChatLauncher extends WebSocketServer {
     @Override
     public void onMessage(WebSocket conn, String message) {
         log.info("Received message: {}", message);
-        broadcast(message);
         chatService.process(message, conn);
     }
 
