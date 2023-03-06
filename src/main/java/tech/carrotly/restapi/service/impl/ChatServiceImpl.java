@@ -10,11 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.java_websocket.WebSocket;
 import org.springframework.stereotype.Service;
 import tech.carrotly.restapi.chat.models.Connection;
-import tech.carrotly.restapi.chat.payloads.MessageRequest;
-import tech.carrotly.restapi.chat.payloads.CreateMessage;
-import tech.carrotly.restapi.chat.payloads.HelpSeekerLeft;
-import tech.carrotly.restapi.chat.payloads.Participant;
-import tech.carrotly.restapi.chat.payloads.RequestAssistant;
+import tech.carrotly.restapi.chat.payloads.*;
 import tech.carrotly.restapi.model.entity.Chatroom;
 import tech.carrotly.restapi.model.entity.Message;
 import tech.carrotly.restapi.model.response.CreatedChatroomResponse;
@@ -112,17 +108,16 @@ public class ChatServiceImpl implements ChatService {
         users.forEach(entry -> entry.getWebSocket().send(helpSeekerLeftJson));
     }
 
-    private void helperEnteredChatroom(String json, WebSocket connection) {
-
+    private void helperEnteredChatroom(String json, WebSocket conn) {
+        HelpGiverEntered payload = new Gson().fromJson(json, HelpGiverEntered.class);
+        Chatroom chatroom = chatrooms.get(payload.getChatroomUuid());
+        chatroom.setHelpGiver(Connection.builder().webSocket(conn).build());
     }
 
-    private void sendHelperPlaceTakenChatroom(WebSocket connection) {
-
-    }
-
-    // front dostaje popupa ze ktos wyszedl, room pokazuje sie na nowo dla lekarzy
-    // (15 sekund czekania) -> popup i tryb AI
     private void helperLeftChatroom(String json) {
+        HelpGiverLeft payload = new Gson().fromJson(json, HelpGiverLeft.class);
+        Chatroom chatroom = chatrooms.get(payload.getChatroomUuid());
+        chatroom.setHelpGiver(null);
     }
 
     @SneakyThrows
