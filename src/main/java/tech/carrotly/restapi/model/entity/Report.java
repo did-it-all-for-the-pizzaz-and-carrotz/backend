@@ -29,4 +29,6 @@ public class Report {
     @OneToMany(mappedBy = "id")
     private List<Message> messages;
 
+    private String who;
+
 }

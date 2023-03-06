@@ -18,6 +18,7 @@ import tech.carrotly.restapi.chat.models.Connection;
 import tech.carrotly.restapi.chat.payloads.HelpGiverLeft;
 import tech.carrotly.restapi.model.entity.Chatroom;
 import tech.carrotly.restapi.model.entity.Message;
+import tech.carrotly.restapi.model.entity.Report;
 import tech.carrotly.restapi.model.response.CreatedChatroomResponse;
 import tech.carrotly.restapi.repository.ReportRepository;
 import tech.carrotly.restapi.service.AssistantService;
@@ -68,7 +69,12 @@ public class ChatServiceImpl implements ChatService {
         Chatroom chatroom = chatrooms.get(chatUuid);
 
         List<Message> messages = chatroom.getMessages();
-
+        reportRepository.save(Report.builder()
+                .age(chatroom.getAgeOfHelpSeeker())
+                .messages(messages)
+                .localDateTime(LocalDateTime.now())
+                .who("currently.com@gmail.com")
+                .build());
     }
 
     private void helperReply(WebSocket conn, String payload, String message) {
