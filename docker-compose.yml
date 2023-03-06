@@ -12,18 +12,19 @@ services:
       - "5432:5432"
     volumes:
       - ./db-data:/var/lib/postgresql/data
-  app:
-    build: .
-    restart: on-failure
-    ports:
-      - "8080:8080"
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/postgres
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=postgres
-      - OPEN_AI_SECRET_KEY=${OPEN_AI_SECRET_KEY}
-    depends_on:
-      - db
+#  app:
+#    build: .
+#    restart: on-failure
+#    ports:
+#      - "8080:8080"
+#      - "8081:8081"
+#    environment:
+#      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/postgres
+#      - SPRING_DATASOURCE_USERNAME=postgres
+#      - SPRING_DATASOURCE_PASSWORD=postgres
+#      - OPEN_AI_SECRET_KEY=2131dawa
+#    depends_on:
+#      - db
 volumes:
   postgres-data:
 networks:
