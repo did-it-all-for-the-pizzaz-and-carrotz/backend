@@ -1,4 +1,4 @@
-package tech.carrotly.restapi.chat.payloads;
+package tech.carrotly.restapi.chat.enums;
 
 public enum Age {
     ADULT,

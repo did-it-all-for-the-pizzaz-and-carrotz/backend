@@ -9,8 +9,9 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.java_websocket.WebSocket;
 import org.springframework.stereotype.Service;
+import tech.carrotly.restapi.chat.enums.Participant;
 import tech.carrotly.restapi.chat.models.Connection;
-import tech.carrotly.restapi.chat.payloads.*;
+import tech.carrotly.restapi.chat.dtos.*;
 import tech.carrotly.restapi.model.entity.Chatroom;
 import tech.carrotly.restapi.model.entity.Message;
 import tech.carrotly.restapi.model.response.CreatedChatroomResponse;
@@ -32,7 +33,26 @@ public class ChatServiceImpl implements ChatService {
     private final Set<Connection> users = new HashSet<>();
     private final AssistantService assistantService;
 
-    public UUID createChatroom(WebSocket conn) {
+    @Override
+    public void process(String message, WebSocket conn) throws JsonProcessingException {
+        JsonNode node = objectMapper.readTree(message);
+        String topic = node.get("topic").toString().replaceAll("\"", "");
+        String payload = node.get("payload").toString();
+
+        log.debug("Received: " + topic + " | " + payload);
+
+        switch (topic) {
+            case "createChatroom" -> onChatroomCreate(conn);
+            case "helperEnteredChatroom" -> onHelperEnteredChatroom(conn, payload);
+            case "helperLeftChatroom" -> onHelperLeftChatroom(conn, payload);
+            case "message" -> onMessage(conn, payload);
+            case "requestAssistant" -> onInviteAssistant(conn, payload);
+            case "helperLogin" -> onHelperLogin(conn);
+            case "helperLogout" -> onHelperLogout(conn);
+        }
+    }
+
+    public void onChatroomCreate(WebSocket conn) {
         final UUID chatroomUuid = UUID.randomUUID();
 
         Chatroom chatroom = Chatroom.builder()
@@ -51,35 +71,62 @@ public class ChatServiceImpl implements ChatService {
         String createdChatroomResponseJson = new Gson().toJson(createdChatroomResponse);
         conn.send(createdChatroomResponseJson);
         users.forEach(entry -> entry.getWebSocket().send(createdChatroomResponseJson));
-
-        return chatroomUuid;
     }
 
-    @Override
-    public void process(String message, WebSocket conn) throws JsonProcessingException {
-        JsonNode node = objectMapper.readTree(message);
-        String topic = node.get("topic").toString().replaceAll("\"", "");
-        String payload = node.get("payload").toString();
-
-        switch (topic) {
-            case "createChatroom" -> createChatroom(conn);
-            case "helperEnteredChatroom" -> helperEnteredChatroom(payload, conn);
-            case "helperLeftChatroom" -> helperLeftChatroom(payload);
-            case "onMessage" -> onMessage(payload, conn);
-            case "requestAssistant" -> requestAssistant(payload);
-            case "helperLogin" -> onHelperLogin(payload, conn);
-            case "helperLogout" -> onHelperLogout(payload, conn);
-        }
-    }
-
-    private void onHelperLogout(String payload, WebSocket conn) {
+    private void onHelperLogout(WebSocket conn) {
         users.remove(Connection.builder().webSocket(conn).build());
+        helpGiverToChatroom.remove(conn.hashCode());
         log.info("User {} has logged out", conn.getRemoteSocketAddress());
     }
 
-    private void onHelperLogin(String payload, WebSocket conn) {
+    private void onHelperLogin(WebSocket conn) {
         users.add(Connection.builder().webSocket(conn).build());
         log.info("User {} has logged in", conn.getRemoteSocketAddress());
+    }
+
+    private void onHelperEnteredChatroom(WebSocket conn, String json) {
+        HelpGiverEnteredResponse payload = new Gson().fromJson(json, HelpGiverEnteredResponse.class);
+        Chatroom chatroom = chatrooms.get(payload.getChatroomUuid());
+        chatroom.setHelpGiver(Connection.builder().webSocket(conn).build());
+    }
+
+    private void onHelperLeftChatroom(WebSocket conn, String json) {
+        HelpGiverLeftResponse payload = new Gson().fromJson(json, HelpGiverLeftResponse.class);
+        Chatroom chatroom = chatrooms.get(payload.getChatroomUuid());
+        chatroom.setHelpGiver(null);
+        helpGiverToChatroom.remove(conn.hashCode());
+    }
+
+    @SneakyThrows
+    private void onMessage(WebSocket conn, String payload) {
+        MessageRequest message = new Gson().fromJson(payload, MessageRequest.class);
+        final Chatroom chatroom = chatrooms.get(message.getChatroomUuid());
+
+        if (chatroom.getAssistantRequested()) {
+            log.info("Send message to assistant");
+            String assistantResponse = assistantService.sendMessage(message.getMessage());
+            chatroom.getMessages().add(Message.builder().content(assistantResponse).from(Participant.ASSISTANT.toString()).build());
+            MessageResponse assistantMessage = MessageResponse.builder().message(assistantResponse).chatroomUuid(chatroom.getUuid()).sender(Participant.ASSISTANT).build();
+            conn.send(assistantMessage.toJson());
+        }
+
+        if (chatroom.getHelpGiver() != null && Objects.equals(chatroom.getHelpGiver().getWebSocket(), conn)) {
+            chatroom.getHelpGiver().getWebSocket().send(message.toJson());
+        }
+    }
+
+    private void onInviteAssistant(WebSocket conn, String json) {
+        InviteAssistantRequest payload = new Gson().fromJson(json, InviteAssistantRequest.class);
+        Chatroom chatroom = chatrooms.get(payload.getChatroomUuid());
+        chatroom.setAssistantRequested(true);
+
+        MessageResponse createMessage = MessageResponse.builder()
+                .chatroomUuid(chatroom.getUuid())
+                .sender(Participant.ASSISTANT)
+                .message("Hi! I am your virtual assistant and I'm here to help you. How can I serve you today?")
+                .build();
+
+        conn.send(new Gson().toJson(createMessage));
     }
 
     public void disconnect(WebSocket conn) {
@@ -95,59 +142,8 @@ public class ChatServiceImpl implements ChatService {
     private void disconnectHelpSeeker(UUID chatroomUuid) {
         Chatroom chatroom = chatrooms.get(chatroomUuid);
         chatrooms.remove(chatroom.getUuid());
-        HelpSeekerLeft helpSeekerLeft = HelpSeekerLeft.builder().chatroomUuid(chatroom.getUuid()).build();
+        HelpSeekerLeftResponse helpSeekerLeft = HelpSeekerLeftResponse.builder().chatroomUuid(chatroom.getUuid()).build();
         String helpSeekerLeftJson = new Gson().toJson(helpSeekerLeft);
         users.forEach(entry -> entry.getWebSocket().send(helpSeekerLeftJson));
     }
-
-    private void helperEnteredChatroom(String json, WebSocket conn) {
-        HelpGiverEntered payload = new Gson().fromJson(json, HelpGiverEntered.class);
-        Chatroom chatroom = chatrooms.get(payload.getChatroomUuid());
-        chatroom.setHelpGiver(Connection.builder().webSocket(conn).build());
-    }
-
-    private void helperLeftChatroom(String json) {
-        HelpGiverLeft payload = new Gson().fromJson(json, HelpGiverLeft.class);
-        Chatroom chatroom = chatrooms.get(payload.getChatroomUuid());
-        chatroom.setHelpGiver(null);
-    }
-
-    @SneakyThrows
-    private void onMessage(String payload, WebSocket conn) {
-        MessageRequest message = objectMapper.readValue(payload, MessageRequest.class);
-
-        log.info(payload);
-        log.info(message.toString());
-
-        final Chatroom chatroom = chatrooms.get(UUID.fromString(message.getChatroomUuid()));
-
-        if (chatroom.getAssistantRequested()) {
-            log.info("Send message to assistant");
-            String assistantResponse = assistantService.sendMessage(message.getMessage());
-            chatroom.getMessages().add(Message.builder().content(assistantResponse).from(Participant.ASSISTANT.toString()).build());
-            CreateMessage assistantMessage = CreateMessage.builder().message(assistantResponse).chatroomUuid(chatroom.getUuid()).sender(Participant.ASSISTANT).build();
-            conn.send(assistantMessage.toJson());
-        }
-
-        if (chatroom.getHelpGiver() != null && Objects.equals(chatroom.getHelpGiver().getWebSocket(), conn)) {
-            chatroom.getHelpGiver().getWebSocket().send(message.toJson());
-        }
-    }
-
-    private void requestAssistant(String json) {
-        log.info(json);
-        RequestAssistant payload = new Gson().fromJson(json, RequestAssistant.class);
-        log.info(payload.getChatroomUuid().toString());
-        Chatroom chatroom = chatrooms.get(payload.getChatroomUuid());
-        chatroom.setAssistantRequested(true);
-
-        CreateMessage createMessage = CreateMessage.builder()
-                .chatroomUuid(chatroom.getUuid())
-                .sender(Participant.ASSISTANT)
-                .message("Hi! I am your virtual assistant and I'm here to help you. How can I serve you today?")
-                .build();
-
-        chatroom.getHelpSeeker().getWebSocket().send(new Gson().toJson(createMessage));
-    }
-
 }

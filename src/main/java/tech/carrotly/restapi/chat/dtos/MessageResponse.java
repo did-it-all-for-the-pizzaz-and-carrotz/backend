@@ -1,24 +1,20 @@
-package tech.carrotly.restapi.chat.payloads;
+package tech.carrotly.restapi.chat.dtos;
 
 import com.google.gson.Gson;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import tech.carrotly.restapi.chat.enums.Participant;
 
 import java.io.Serializable;
 import java.util.UUID;
 
-@Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class CreateMessage implements Serializable {
+public class MessageResponse extends GsonSerializable {
     UUID chatroomUuid;
     Participant sender;
     String message;
-
-    public String toJson() {
-        return new Gson().toJson(this);
-    }
 }

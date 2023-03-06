@@ -21,6 +21,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/postgres
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=postgres
+      - OPEN_AI_SECRET_TOKEN=${OPEN_AI_SECRET_TOKEN}
     depends_on:
       - db
 volumes:

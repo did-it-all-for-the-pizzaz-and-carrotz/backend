@@ -1,4 +1,4 @@
-package tech.carrotly.restapi.chat.payloads;
+package tech.carrotly.restapi.chat.dtos;
 
 import lombok.Builder;
 import lombok.Getter;
@@ -9,6 +9,6 @@ import java.util.UUID;
 @Builder
 @Getter
 @Setter
-public class HelpGiverEntered {
+public class HelpGiverLeftResponse extends GsonSerializable {
     UUID chatroomUuid;
 }
