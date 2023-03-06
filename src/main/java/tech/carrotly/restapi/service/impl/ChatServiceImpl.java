@@ -29,7 +29,6 @@ import java.util.*;
 
 import static java.util.Objects.nonNull;
 
-
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -107,36 +106,36 @@ public class ChatServiceImpl implements ChatService {
 
         // TODO za czat bota wiadomosci wysylac
         rooms.forEach(room -> {
-                    JSONObject jo = new JSONObject();
-                    try {
-                        jo.put("chatroomUUID", room.getUuid());
-                        jo.put("date", room.getLocalDateTime());
-                        jo.put("assistantRequested", room.getAssistantRequested());
-                        jo.put("age", room.getAgeOfHelpSeeker());
+            JSONObject jo = new JSONObject();
+            try {
+                jo.put("chatroomUUID", room.getUuid());
+                jo.put("date", room.getLocalDateTime());
+                jo.put("assistantRequested", room.getAssistantRequested());
+                jo.put("age", room.getAgeOfHelpSeeker());
 
-                        room.getMessages().stream()
-                                .findFirst()
-                                .map(mess -> {
-                                    try {
-                                        jo.put("title", mess);
-                                    } catch (JSONException e) {
-                                        e.printStackTrace();
-                                    }
-                                    return mess;
-                                }).orElseGet(() -> {
-                                    try {
-                                        jo.put("title", "Czekam na pierwszą wiadomość...");
-                                    } catch (JSONException e) {
-                                        e.printStackTrace();
-                                    }
-                                    return null;
-                                });
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                room.getMessages().stream()
+                        .findFirst()
+                        .map(mess -> {
+                            try {
+                                jo.put("title", mess);
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+                            }
+                            return mess;
+                        }).orElseGet(() -> {
+                            try {
+                                jo.put("title", "Czekam na pierwszą wiadomość...");
+                            } catch (JSONException e) {
+                                e.printStackTrace();
+                            }
+                            return null;
+                        });
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
 
-                    jsonArray.put(jo);
-                });
+            jsonArray.put(jo);
+        });
 
         log.info("Sending {} to dashboard user", jsonObject.toString());
 
@@ -177,7 +176,8 @@ public class ChatServiceImpl implements ChatService {
         conn.send(jsonObject.toString());
 
         // TODO fix?
-//        users.forEach(entry -> entry.getWebSocket().send(createdChatroomResponseJson));
+        // users.forEach(entry ->
+        // entry.getWebSocket().send(createdChatroomResponseJson));
     }
 
     private void onHelperLogout(WebSocket conn) {
@@ -213,7 +213,6 @@ public class ChatServiceImpl implements ChatService {
         chatroom.setHelpGiver(null);
         helpGiverToChatroom.remove(conn.hashCode());
 
-
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("topic", "HELPER_LEFT");
         jsonObject.put("payload", "{}");
@@ -239,14 +238,25 @@ public class ChatServiceImpl implements ChatService {
         if (chatroom.getAssistantRequested()) {
             log.info("Send message to assistant");
             String assistantResponse = assistantService.sendMessage(message.getMessage());
-            chatroom.getMessages().add(Message.builder().content(assistantResponse).from(Participant.ASSISTANT.toString()).build());
-            MessageResponse assistantMessage = MessageResponse.builder().message(assistantResponse).chatroomUuid(chatroom.getUuid()).sender(Participant.ASSISTANT).build();
-            conn.send(assistantMessage.toJson());
+            chatroom.getMessages()
+                    .add(Message.builder().content(assistantResponse).from(Participant.ASSISTANT.toString()).build());
+            MessageResponse assistantMessage = MessageResponse.builder().message(assistantResponse)
+                    .chatroomUuid(chatroom.getUuid()).sender(Participant.ASSISTANT).build();
+            chatroom.getHelpSeeker().getWebSocket().send(assistantMessage.toJson());
         }
 
-        if (chatroom.getHelpGiver() != null && Objects.equals(chatroom.getHelpGiver().getWebSocket(), conn)) {
-            chatroom.getHelpGiver().getWebSocket().send(message.toJson());
+        if (chatroom.getHelpGiver() != null && chatroom.getHelpSeeker() != null && Objects.equals(chatroom.getHelpGiver().getWebSocket(), conn)) {
+            MessageResponse messageResponse = MessageResponse.builder().chatroomUuid(chatroom.getUuid()).sender(Participant.HELP_GIVER).message(message.getMessage()).build();
+            chatroom.getHelpSeeker().getWebSocket().send(messageResponse.toJson());
+            log.info("Sending {}", messageResponse);
             chatroom.getMessages().add(Message.builder().from("seaker").content(message.getMessage()).build());
+        }
+
+        if (chatroom.getHelpSeeker() != null && chatroom.getHelpGiver() != null && Objects.equals(chatroom.getHelpSeeker().getWebSocket(), conn)) {
+            MessageResponse messageResponse = MessageResponse.builder().chatroomUuid(chatroom.getUuid()).sender(Participant.HELP_SEEKER).message(message.getMessage()).build();
+            chatroom.getHelpGiver().getWebSocket().send(messageResponse.toJson());
+            log.info("Sending {}", messageResponse);
+            chatroom.getMessages().add(Message.builder().from("giver").content(message.getMessage()).build());
         }
     }
 
@@ -265,8 +275,10 @@ public class ChatServiceImpl implements ChatService {
     }
 
     public void disconnect(WebSocket conn) {
-        if (helpGiverToChatroom.containsKey(conn.hashCode())) disconnectHelpGiver(helpGiverToChatroom.get(conn.hashCode()), conn);
-        if (helpSeekerToChatroom.containsKey(conn.hashCode())) disconnectHelpSeeker(helpSeekerToChatroom.get(conn.hashCode()));
+        if (helpGiverToChatroom.containsKey(conn.hashCode()))
+            disconnectHelpGiver(helpGiverToChatroom.get(conn.hashCode()), conn);
+        if (helpSeekerToChatroom.containsKey(conn.hashCode()))
+            disconnectHelpSeeker(helpSeekerToChatroom.get(conn.hashCode()));
     }
 
     private void disconnectHelpGiver(UUID chatroomUuid, WebSocket conn) {
@@ -286,7 +298,8 @@ public class ChatServiceImpl implements ChatService {
     private void disconnectHelpSeeker(UUID chatroomUuid) {
         Chatroom chatroom = chatrooms.get(chatroomUuid);
         chatrooms.remove(chatroom.getUuid());
-        HelpSeekerLeftResponse helpSeekerLeft = HelpSeekerLeftResponse.builder().chatroomUuid(chatroom.getUuid()).build();
+        HelpSeekerLeftResponse helpSeekerLeft = HelpSeekerLeftResponse.builder().chatroomUuid(chatroom.getUuid())
+                .build();
         log.info("Removing room {}", chatroom);
         String helpSeekerLeftJson = new Gson().toJson(helpSeekerLeft);
         users.forEach(entry -> entry.getWebSocket().send(helpSeekerLeftJson));
