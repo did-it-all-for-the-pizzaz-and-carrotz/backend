@@ -197,6 +197,7 @@ public class ChatServiceImpl implements ChatService {
         HelpGiverEnteredResponse payload = new Gson().fromJson(json, HelpGiverEnteredResponse.class);
         Chatroom chatroom = chatrooms.get(payload.getChatroomUuid());
         chatroom.setHelpGiver(Connection.builder().webSocket(conn).build());
+        chatroom.setAssistantRequested(false);
 
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("topic", "HELPER_ENTERED");
@@ -240,7 +241,7 @@ public class ChatServiceImpl implements ChatService {
             String assistantResponse = assistantService.sendMessage(message.getMessage());
             chatroom.getMessages()
                     .add(Message.builder().content(assistantResponse).from(Participant.ASSISTANT.toString()).build());
-            MessageResponse assistantMessage = MessageResponse.builder().chatroomUuid(chatroom.getUuid()).sender(Participant.ASSISTANT).message(message.getMessage()).build();
+            MessageResponse assistantMessage = MessageResponse.builder().chatroomUuid(chatroom.getUuid()).sender(Participant.ASSISTANT).message(assistantResponse).build();
             JSONObject jsonObject = new JSONObject();
             jsonObject.put("topic", "MESSAGE");
             jsonObject.put("payload", assistantMessage.toJson());
