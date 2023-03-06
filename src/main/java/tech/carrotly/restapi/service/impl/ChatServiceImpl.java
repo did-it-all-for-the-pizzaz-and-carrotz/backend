@@ -27,6 +27,7 @@ import tech.carrotly.restapi.service.ChatService;
 import java.time.LocalDateTime;
 import java.util.*;
 
+import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
 
 @Slf4j
@@ -164,13 +165,14 @@ public class ChatServiceImpl implements ChatService {
                 .chatroomUUID(chatroomUuid)
                 .build();
 
-        String createdChatroomResponseJson = new Gson().toJson(createdChatroomResponse);
-
         // Build json object response
         JSONObject jsonObject = new JSONObject();
         JSONObject py = new JSONObject();
+
+        py.put("chatroomUuid", createdChatroomResponse.getChatroomUUID().toString());
+
         jsonObject.put("topic", "GAIN_ACCESS");
-        jsonObject.put("payload", createdChatroomResponseJson);
+        jsonObject.put("payload", py);
 
         log.info("Sending {} to chat room", jsonObject.toString());
         conn.send(jsonObject.toString());
@@ -196,6 +198,9 @@ public class ChatServiceImpl implements ChatService {
     private void onHelperEnteredChatroom(WebSocket conn, String json) {
         HelpGiverEnteredResponse payload = new Gson().fromJson(json, HelpGiverEnteredResponse.class);
         Chatroom chatroom = chatrooms.get(payload.getChatroomUuid());
+        if(chatroom == null)
+            return;
+
         chatroom.setHelpGiver(Connection.builder().webSocket(conn).build());
         chatroom.setAssistantRequested(false);
 
@@ -205,6 +210,28 @@ public class ChatServiceImpl implements ChatService {
 
         log.info("Sending {} to chat room", jsonObject.toString());
         chatroom.getHelpSeeker().getWebSocket().send(jsonObject.toString());
+
+        users.stream()
+                .filter(u -> !u.getWebSocket().equals(conn))
+                .forEach(user -> {
+                    JSONObject obj = new JSONObject();
+                    JSONObject payld = new JSONObject();
+                    try {
+                        obj.put("topic", "REMOVE_FREE_ROOM");
+                        obj.put("payload", payld);
+                        payld.put("chatroomUuid", chatroom.getUuid());
+                        payld.put("age", chatroom.getAgeOfHelpSeeker());
+                        payld.put("date", chatroom.getLocalDateTime());
+                        payld.put("title", "Waiting for the response...");
+
+
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+
+                    user.getWebSocket().send(obj.toString());
+
+                });
     }
 
     @SneakyThrows
@@ -213,6 +240,7 @@ public class ChatServiceImpl implements ChatService {
         Chatroom chatroom = chatrooms.get(payload.getChatroomUuid());
         chatroom.setHelpGiver(null);
         helpGiverToChatroom.remove(conn.hashCode());
+
 
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("topic", "HELPER_LEFT");
@@ -224,10 +252,21 @@ public class ChatServiceImpl implements ChatService {
         users.stream()
                 .filter(u -> !u.getWebSocket().equals(conn))
                 .forEach(user -> {
-                    user.getWebSocket().send(HelpGiverLeft.builder()
-                            .chatroomUUID(chatroom.getUuid())
-                            .build()
-                            .toJson());
+                    JSONObject obj = new JSONObject();
+                    JSONObject payld = new JSONObject();
+                    try {
+                        obj.put("topic", "ADD_FREE_ROOM");
+                        obj.put("payload", payld);
+                        payld.put("chatroomUuid", chatroom.getUuid());
+                        payld.put("age", chatroom.getAgeOfHelpSeeker());
+                        payld.put("date", chatroom.getLocalDateTime());
+                        payld.put("title", "Waiting for the response...");
+
+
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                    user.getWebSocket().send(obj.toString());
                 });
     }
 
@@ -235,6 +274,10 @@ public class ChatServiceImpl implements ChatService {
     private void onMessage(WebSocket conn, String payload) {
         MessageRequest message = new Gson().fromJson(payload, MessageRequest.class);
         final Chatroom chatroom = chatrooms.get(message.getChatroomUuid());
+
+        if(isNull(chatroom)) {
+            return;
+        }
 
         if (chatroom.getAssistantRequested() && message.getMessage() != null) {
             log.info("Send message to assistant");
@@ -292,7 +335,7 @@ public class ChatServiceImpl implements ChatService {
         if (helpGiverToChatroom.containsKey(conn.hashCode()))
             disconnectHelpGiver(helpGiverToChatroom.get(conn.hashCode()), conn);
         if (helpSeekerToChatroom.containsKey(conn.hashCode()))
-            disconnectHelpSeeker(helpSeekerToChatroom.get(conn.hashCode()));
+            disconnectHelpSeeker(helpSeekerToChatroom.get(conn.hashCode()), conn);
     }
 
     private void disconnectHelpGiver(UUID chatroomUuid, WebSocket conn) {
@@ -309,13 +352,31 @@ public class ChatServiceImpl implements ChatService {
                 });
     }
 
-    private void disconnectHelpSeeker(UUID chatroomUuid) {
+    @SneakyThrows
+    private void disconnectHelpSeeker(UUID chatroomUuid, WebSocket conn) {
         Chatroom chatroom = chatrooms.get(chatroomUuid);
         chatrooms.remove(chatroom.getUuid());
         HelpSeekerLeftResponse helpSeekerLeft = HelpSeekerLeftResponse.builder().chatroomUuid(chatroom.getUuid())
                 .build();
         log.info("Removing room {}", chatroom);
         String helpSeekerLeftJson = new Gson().toJson(helpSeekerLeft);
-        users.forEach(entry -> entry.getWebSocket().send(helpSeekerLeftJson));
+
+
+            users.forEach(entry -> {
+                try {
+                    entry.getWebSocket().send(helpSeekerLeftJson);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+
+
+        // Build json object response
+        JSONObject jsonObject = new JSONObject();
+        JSONObject py = new JSONObject();
+        jsonObject.put("topic", "GAIN_ACCESS");
+        jsonObject.put("payload", "{}");
+
+        conn.send(String.valueOf(jsonObject));
     }
 }
